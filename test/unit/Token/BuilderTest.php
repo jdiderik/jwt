@@ -414,7 +414,7 @@ final class BuilderTest extends \PHPUnit\Framework\TestCase
         $this->signer->method('sign')->willReturn('testing');
 
         $headers = ['typ' => 'JWT', 'alg' => 'RS256'];
-        $claims = ['test' => 123, 'iat' => 1487285080, 'exp' => '1487285080.123456'];
+        $claims = ['test' => 123, 'aud' => 'test', 'iat' => 1487285080, 'exp' => '1487285080.123456'];
 
         $this->encoder->expects($this->exactly(2))
                       ->method('jsonEncode')
@@ -429,6 +429,7 @@ final class BuilderTest extends \PHPUnit\Framework\TestCase
         $token = $this->createBuilder()
                       ->issuedAt(new DateTimeImmutable('@1487285080'))
                       ->expiresAt(DateTimeImmutable::createFromFormat('U.u', '1487285080.123456'))
+                      ->permittedFor('test')
                       ->withClaim('test', 123)
                       ->getToken($this->signer, new Key('123'));
 
