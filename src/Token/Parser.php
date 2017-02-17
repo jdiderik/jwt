@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Lcobucci\JWT\Token;
 
+use DateTimeImmutable;
 use InvalidArgumentException;
 use Lcobucci\Jose\Parsing;
 use Lcobucci\JWT\Parser as ParserInterface;
@@ -90,7 +91,26 @@ final class Parser implements ParserInterface
      */
     private function parseClaims(string $data): array
     {
-        return (array) $this->decoder->jsonDecode($this->decoder->base64UrlDecode($data));
+        $claims = (array) $this->decoder->jsonDecode($this->decoder->base64UrlDecode($data));
+
+        foreach (RegisteredClaims::DATE_CLAIMS as $claim) {
+            if (!isset($claims[$claim])) {
+                continue;
+            }
+
+            $claims[$claim] = $this->convertDate((string) $claims[$claim]);
+        }
+
+        return $claims;
+    }
+
+    private function convertDate(string $value): DateTimeImmutable
+    {
+        if (strpos($value, '.') === false) {
+            $value .= '.0';
+        }
+
+        return DateTimeImmutable::createFromFormat('U.u', $value);
     }
 
     /**
