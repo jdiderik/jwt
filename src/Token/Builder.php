@@ -1,121 +1,76 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Token;
 
-use Lcobucci\Jose\Parsing;
+use DateTimeImmutable;
 use Lcobucci\JWT\Builder as BuilderInterface;
+use Lcobucci\JWT\ClaimsFormatter;
+use Lcobucci\JWT\Encoder;
+use Lcobucci\JWT\Encoding\CannotEncodeContent;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key;
 
-/**
- * This class makes easier the token creation process
- *
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 0.1.0
- */
+use function array_diff;
+use function array_merge;
+use function in_array;
+
 final class Builder implements BuilderInterface
 {
-    /**
-     * The token header
-     *
-     * @var array
-     */
-    private $headers = ['typ'=> 'JWT', 'alg' => 'none'];
+    /** @var array<string, mixed> */
+    private array $headers = ['typ' => 'JWT', 'alg' => null];
 
-    /**
-     * The token claim set
-     *
-     * @var array
-     */
-    private $claims = [];
+    /** @var array<string, mixed> */
+    private array $claims = [];
 
-    /**
-     * The data encoder
-     *
-     * @var Parsing\Encoder
-     */
-    private $encoder;
+    private Encoder $encoder;
+    private ClaimsFormatter $claimFormatter;
 
-    /**
-     * Initializes a new builder
-     */
-    public function __construct(Parsing\Encoder $encoder)
+    public function __construct(Encoder $encoder, ClaimsFormatter $claimFormatter)
     {
-        $this->encoder = $encoder;
+        $this->encoder        = $encoder;
+        $this->claimFormatter = $claimFormatter;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function permittedFor(string $audience): BuilderInterface
+    public function permittedFor(string ...$audiences): BuilderInterface
     {
-        $audiences = $this->claims[RegisteredClaims::AUDIENCE] ?? [];
+        $configured = $this->claims[RegisteredClaims::AUDIENCE] ?? [];
+        $toAppend   = array_diff($audiences, $configured);
 
-        if (!in_array($audience, $audiences)) {
-            $audiences[] = $audience;
-        }
-
-        return $this->setClaim(RegisteredClaims::AUDIENCE, $audiences);
+        return $this->setClaim(RegisteredClaims::AUDIENCE, array_merge($configured, $toAppend));
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function expiresAt(int $expiration): BuilderInterface
+    public function expiresAt(DateTimeImmutable $expiration): BuilderInterface
     {
         return $this->setClaim(RegisteredClaims::EXPIRATION_TIME, $expiration);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function identifiedBy(string $id): BuilderInterface
     {
         return $this->setClaim(RegisteredClaims::ID, $id);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function issuedAt(int $issuedAt): BuilderInterface
+    public function issuedAt(DateTimeImmutable $issuedAt): BuilderInterface
     {
         return $this->setClaim(RegisteredClaims::ISSUED_AT, $issuedAt);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function issuedBy(string $issuer): BuilderInterface
     {
         return $this->setClaim(RegisteredClaims::ISSUER, $issuer);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function canOnlyBeUsedAfter(int $notBefore): BuilderInterface
+    public function canOnlyBeUsedAfter(DateTimeImmutable $notBefore): BuilderInterface
     {
         return $this->setClaim(RegisteredClaims::NOT_BEFORE, $notBefore);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function relatedTo(string $subject): BuilderInterface
     {
         return $this->setClaim(RegisteredClaims::SUBJECT, $subject);
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    /** @inheritdoc */
     public function withHeader(string $name, $value): BuilderInterface
     {
         $this->headers[$name] = $value;
@@ -123,18 +78,17 @@ final class Builder implements BuilderInterface
         return $this;
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    /** @inheritdoc */
     public function withClaim(string $name, $value): BuilderInterface
     {
         if (in_array($name, RegisteredClaims::ALL, true)) {
-            throw new \InvalidArgumentException('You should use the correct methods to set registered claims');
+            throw RegisteredClaimGiven::forClaim($name);
         }
 
         return $this->setClaim($name, $value);
     }
 
+    /** @param mixed $value */
     private function setClaim(string $name, $value): BuilderInterface
     {
         $this->claims[$name] = $value;
@@ -142,6 +96,11 @@ final class Builder implements BuilderInterface
         return $this;
     }
 
+    /**
+     * @param array<string, mixed> $items
+     *
+     * @throws CannotEncodeContent When data cannot be converted to JSON.
+     */
     private function encode(array $items): string
     {
         return $this->encoder->base64UrlEncode(
@@ -149,18 +108,15 @@ final class Builder implements BuilderInterface
         );
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getToken(Signer $signer, Key $key): Plain
     {
-        $headers = $this->headers;
-        $headers['alg'] = $signer->getAlgorithmId();
+        $headers        = $this->headers;
+        $headers['alg'] = $signer->algorithmId();
 
         $encodedHeaders = $this->encode($headers);
-        $encodedClaims = $this->encode($this->claims);
+        $encodedClaims  = $this->encode($this->claimFormatter->formatClaims($this->claims));
 
-        $signature = $signer->sign($encodedHeaders . '.' . $encodedClaims, $key);
+        $signature        = $signer->sign($encodedHeaders . '.' . $encodedClaims, $key);
         $encodedSignature = $this->encoder->base64UrlEncode($signature);
 
         return new Plain(

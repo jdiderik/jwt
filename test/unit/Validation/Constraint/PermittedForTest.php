@@ -1,23 +1,19 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\Validation\Constraint;
 
 use Lcobucci\JWT\Token\RegisteredClaims;
+use Lcobucci\JWT\Validation\ConstraintViolation;
 
+/** @coversDefaultClass \Lcobucci\JWT\Validation\Constraint\PermittedFor */
 final class PermittedForTest extends ConstraintTestCase
 {
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -25,6 +21,9 @@ final class PermittedForTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenAudienceIsNotSet(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not allowed to be used by this audience');
+
         $constraint = new PermittedFor('test.com');
         $constraint->assert($this->buildToken());
     }
@@ -32,10 +31,8 @@ final class PermittedForTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -43,6 +40,9 @@ final class PermittedForTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenAudienceValueDoesNotMatch(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not allowed to be used by this audience');
+
         $constraint = new PermittedFor('test.com');
         $constraint->assert($this->buildToken([RegisteredClaims::AUDIENCE => ['aa.com']]));
     }
@@ -50,10 +50,8 @@ final class PermittedForTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -61,6 +59,9 @@ final class PermittedForTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenAudienceTypeDoesNotMatch(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not allowed to be used by this audience');
+
         $constraint = new PermittedFor('123');
         $constraint->assert($this->buildToken([RegisteredClaims::AUDIENCE => [123]]));
     }
@@ -68,8 +69,8 @@ final class PermittedForTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -77,27 +78,10 @@ final class PermittedForTest extends ConstraintTestCase
      */
     public function assertShouldNotRaiseExceptionWhenAudienceMatches(): void
     {
-        $token = $this->buildToken([RegisteredClaims::AUDIENCE => ['aa.com', 'test.com']]);
+        $token      = $this->buildToken([RegisteredClaims::AUDIENCE => ['aa.com', 'test.com']]);
         $constraint = new PermittedFor('test.com');
 
-        self::assertNull($constraint->assert($token));
-    }
-
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor::assert
-     *
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Plain
-     * @uses \Lcobucci\JWT\Token\Signature
-     */
-    public function assertShouldNotRaiseExceptionWhenAudienceMatchesAsString(): void
-    {
-        $token = $this->buildToken([RegisteredClaims::AUDIENCE => 'test.com']);
-        $constraint = new PermittedFor('test.com');
-
-        self::assertNull($constraint->assert($token));
+        $constraint->assert($token);
+        $this->addToAssertionCount(1);
     }
 }

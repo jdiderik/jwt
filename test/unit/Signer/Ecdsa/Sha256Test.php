@@ -1,19 +1,14 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Signer\Ecdsa;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 2.1.0
- */
-final class Sha256Test extends BaseTestCase
+use PHPUnit\Framework\TestCase;
+
+use const OPENSSL_ALGO_SHA256;
+
+/** @coversDefaultClass \Lcobucci\JWT\Signer\Ecdsa\Sha256 */
+final class Sha256Test extends TestCase
 {
     /**
      * @test
@@ -21,41 +16,53 @@ final class Sha256Test extends BaseTestCase
      * @covers \Lcobucci\JWT\Signer\Ecdsa::create
      * @covers \Lcobucci\JWT\Signer\Ecdsa::__construct
      *
-     * @uses \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @uses \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @uses \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
+     * @uses \Lcobucci\JWT\Signer\Ecdsa\MultibyteStringConverter
      */
     public function createShouldReturnAValidInstance(): void
     {
-        self::assertInstanceOf(Sha256::class, Sha256::create());
+        $signer = Sha256::create();
+
+        self::assertInstanceOf(Sha256::class, $signer);
     }
 
     /**
      * @test
      *
-     * @uses \Lcobucci\JWT\Signer\Ecdsa
+     * @covers ::algorithmId
      *
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256::getAlgorithmId
+     * @uses \Lcobucci\JWT\Signer\Ecdsa
      */
-    public function getAlgorithmIdMustBeCorrect(): void
+    public function algorithmIdMustBeCorrect(): void
     {
-        self::assertEquals('ES256', $this->getSigner()->getAlgorithmId());
+        self::assertSame('ES256', $this->getSigner()->algorithmId());
     }
 
     /**
      * @test
      *
-     * @uses \Lcobucci\JWT\Signer\Ecdsa
+     * @covers ::algorithm
      *
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256::getAlgorithm
+     * @uses \Lcobucci\JWT\Signer\Ecdsa
      */
-    public function getAlgorithmMustBeCorrect(): void
+    public function algorithmMustBeCorrect(): void
     {
-        self::assertEquals('sha256', $this->getSigner()->getAlgorithm());
+        self::assertSame(OPENSSL_ALGO_SHA256, $this->getSigner()->algorithm());
+    }
+
+    /**
+     * @test
+     *
+     * @covers ::keyLength
+     *
+     * @uses \Lcobucci\JWT\Signer\Ecdsa
+     */
+    public function keyLengthMustBeCorrect(): void
+    {
+        self::assertSame(64, $this->getSigner()->keyLength());
     }
 
     private function getSigner(): Sha256
     {
-        return new Sha256($this->adapter, $this->keyParser);
+        return new Sha256($this->createMock(SignatureConverter::class));
     }
 }

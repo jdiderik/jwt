@@ -1,23 +1,19 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\Validation\Constraint;
 
 use Lcobucci\JWT\Token\RegisteredClaims;
+use Lcobucci\JWT\Validation\ConstraintViolation;
 
+/** @coversDefaultClass \Lcobucci\JWT\Validation\Constraint\RelatedTo */
 final class RelatedToTest extends ConstraintTestCase
 {
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\RelatedTo::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\RelatedTo::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -25,6 +21,9 @@ final class RelatedToTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenSubjectIsNotSet(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not related to the expected subject');
+
         $constraint = new RelatedTo('user-auth');
         $constraint->assert($this->buildToken());
     }
@@ -32,10 +31,8 @@ final class RelatedToTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\RelatedTo::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\RelatedTo::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -43,6 +40,9 @@ final class RelatedToTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenSubjectDoesNotMatch(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not related to the expected subject');
+
         $constraint = new RelatedTo('user-auth');
         $constraint->assert($this->buildToken([RegisteredClaims::SUBJECT => 'password-recovery']));
     }
@@ -50,8 +50,8 @@ final class RelatedToTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Constraint\RelatedTo::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\RelatedTo::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -59,9 +59,10 @@ final class RelatedToTest extends ConstraintTestCase
      */
     public function assertShouldNotRaiseExceptionWhenSubjectMatches(): void
     {
-        $token = $this->buildToken([RegisteredClaims::SUBJECT => 'user-auth']);
-
+        $token      = $this->buildToken([RegisteredClaims::SUBJECT => 'user-auth']);
         $constraint = new RelatedTo('user-auth');
-        self::assertNull($constraint->assert($token));
+
+        $constraint->assert($token);
+        $this->addToAssertionCount(1);
     }
 }

@@ -1,69 +1,65 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\Signer;
 
-/**
- * @author Luís Cobucci <lcobucci@gmail.com>
- * @since 4.0.0
- */
-final class NoneTest extends \PHPUnit\Framework\TestCase
+use Lcobucci\JWT\Signer\Key\InMemory;
+use PHPUnit\Framework\TestCase;
+
+/** @coversDefaultClass \Lcobucci\JWT\Signer\None */
+final class NoneTest extends TestCase
 {
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Signer\None::getAlgorithmId
+     * @covers ::algorithmId
      */
-    public function getAlgorithmIdMustBeCorrect(): void
+    public function algorithmIdMustBeCorrect(): void
     {
         $signer = new None();
 
-        self::assertEquals('none', $signer->getAlgorithmId());
+        self::assertEquals('none', $signer->algorithmId());
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Signer\None::sign
+     * @covers ::sign
      *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function signShouldReturnAnEmptyString(): void
     {
         $signer = new None();
 
-        self::assertEquals('', $signer->sign('test', new Key('test')));
+        self::assertEquals('', $signer->sign('test', InMemory::plainText('test')));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Signer\None::verify
+     * @covers ::verify
      *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function verifyShouldReturnTrueWhenSignatureHashIsEmpty(): void
     {
         $signer = new None();
 
-        self::assertTrue($signer->verify('', 'test', new Key('test')));
+        self::assertTrue($signer->verify('', 'test', InMemory::plainText('test')));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Signer\None::verify
+     * @covers ::verify
      *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function verifyShouldReturnFalseWhenSignatureHashIsEmpty(): void
     {
         $signer = new None();
 
-        self::assertFalse($signer->verify('testing', 'test', new Key('test')));
+        self::assertFalse($signer->verify('testing', 'test', InMemory::plainText('test')));
     }
 }

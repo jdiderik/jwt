@@ -1,51 +1,30 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Token;
 
-use DateTime;
+use DateTimeImmutable;
+use PHPUnit\Framework\TestCase;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 0.1.0
- */
-final class PlainTest extends \PHPUnit\Framework\TestCase
+/** @coversDefaultClass \Lcobucci\JWT\Token\Plain */
+final class PlainTest extends TestCase
 {
-    /**
-     * @var DataSet
-     */
-    private $headers;
+    private DataSet $headers;
+    private DataSet $claims;
+    private Signature $signature;
 
-    /**
-     * @var DataSet
-     */
-    private $claims;
-
-    /**
-     * @var Signature
-     */
-    private $signature;
-
-    /**
-     * @before
-     */
+    /** @before */
     public function createDependencies(): void
     {
-        $this->headers = new DataSet(['alg' => 'none'],  'headers');
-        $this->claims = new DataSet([],  'claims');
+        $this->headers   = new DataSet(['alg' => 'none'], 'headers');
+        $this->claims    = new DataSet([], 'claims');
         $this->signature = new Signature('hash', 'signature');
     }
 
     private function createToken(
-        DataSet $headers = null,
-        DataSet $claims = null,
-        Signature $signature = null
+        ?DataSet $headers = null,
+        ?DataSet $claims = null,
+        ?Signature $signature = null
     ): Plain {
         return new Plain(
             $headers ?? $this->headers,
@@ -57,88 +36,43 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
+     * @covers ::__construct
+     * @covers ::headers
+     * @covers ::claims
+     * @covers ::signature
+     *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::__construct
      */
     public function signedShouldCreateATokenWithSignature(): void
     {
         $token = $this->createToken();
 
-        self::assertAttributeSame($this->headers, 'headers', $token);
-        self::assertAttributeSame($this->claims, 'claims', $token);
-        self::assertAttributeSame($this->signature, 'signature', $token);
-    }
-
-    /**
-     * @test
-     *
-     * @uses \Lcobucci\JWT\Token\Plain::__construct
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::headers
-     */
-    public function headersMustReturnTheConfiguredDataSet(): void
-    {
-        $token = $this->createToken();
-
         self::assertSame($this->headers, $token->headers());
-    }
-
-    /**
-     * @test
-     *
-     * @uses \Lcobucci\JWT\Token\Plain::__construct
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::claims
-     */
-    public function claimsMustReturnTheConfiguredClaims(): void
-    {
-        $token = $this->createToken();
-
         self::assertSame($this->claims, $token->claims());
-    }
-
-    /**
-     * @test
-     *
-     * @uses \Lcobucci\JWT\Token\Plain::__construct
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::signature
-     */
-    public function signatureShouldReturnTheConfiguredSignature(): void
-    {
-        $token = $this->createToken();
-
         self::assertSame($this->signature, $token->signature());
     }
 
     /**
      * @test
      *
+     * @covers ::payload
+     *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::payload
      */
     public function payloadShouldReturnAStringWithTheEncodedHeadersAndClaims(): void
     {
         $token = $this->createToken();
 
-        self::assertEquals('headers.claims', $token->payload());
+        self::assertSame('headers.claims', $token->payload());
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isPermittedFor
+     * @covers ::isPermittedFor
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -154,26 +88,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isPermittedFor
-     *
-     * @uses \Lcobucci\JWT\Token\Plain::__construct
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Signature
-     */
-    public function isPermittedForShouldReturnFalseWhenAudienceDoesNotMatchAsString(): void
-    {
-        $token = $this->createToken(
-            null,
-            new DataSet([RegisteredClaims::AUDIENCE => 'test'], '')
-        );
-
-        self::assertFalse($token->isPermittedFor('testing'));
-    }
-
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::isPermittedFor
+     * @covers ::isPermittedFor
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -192,7 +107,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isPermittedFor
+     * @covers ::isPermittedFor
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -202,7 +117,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     {
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::AUDIENCE => 10], '')
+            new DataSet([RegisteredClaims::AUDIENCE => [10]], '')
         );
 
         self::assertFalse($token->isPermittedFor('10'));
@@ -211,26 +126,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isPermittedFor
-     *
-     * @uses \Lcobucci\JWT\Token\Plain::__construct
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Signature
-     */
-    public function isPermittedForShouldReturnTrueWhenAudienceMatchesAsString(): void
-    {
-        $token = $this->createToken(
-            null,
-            new DataSet([RegisteredClaims::AUDIENCE => 'testing'], '')
-        );
-
-        self::assertTrue($token->isPermittedFor('testing'));
-    }
-
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::isPermittedFor
+     * @covers ::isPermittedFor
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -249,7 +145,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isIdentifiedBy
+     * @covers ::isIdentifiedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -265,7 +161,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isIdentifiedBy
+     * @covers ::isIdentifiedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -284,7 +180,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isIdentifiedBy
+     * @covers ::isIdentifiedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -303,7 +199,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isRelatedTo
+     * @covers ::isRelatedTo
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -319,7 +215,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isRelatedTo
+     * @covers ::isRelatedTo
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -338,7 +234,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isRelatedTo
+     * @covers ::isRelatedTo
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -357,7 +253,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBy
+     * @covers ::hasBeenIssuedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -373,7 +269,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBy
+     * @covers ::hasBeenIssuedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -392,7 +288,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBy
+     * @covers ::hasBeenIssuedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -411,7 +307,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBy
+     * @covers ::hasBeenIssuedBy
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -430,7 +326,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBefore
+     * @covers ::hasBeenIssuedBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -440,13 +336,13 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     {
         $token = $this->createToken();
 
-        self::assertTrue($token->hasBeenIssuedBefore(new DateTime()));
+        self::assertTrue($token->hasBeenIssuedBefore(new DateTimeImmutable()));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBefore
+     * @covers ::hasBeenIssuedBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -454,10 +350,10 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function hasBeenIssuedBeforeShouldReturnTrueWhenIssueTimeIsBeforeThanNow(): void
     {
-        $now = new DateTime();
+        $now   = new DateTimeImmutable();
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::ISSUED_AT => $now->getTimestamp() - 100], '')
+            new DataSet([RegisteredClaims::ISSUED_AT => $now->modify('-100 seconds')], '')
         );
 
         self::assertTrue($token->hasBeenIssuedBefore($now));
@@ -466,7 +362,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBefore
+     * @covers ::hasBeenIssuedBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -474,10 +370,10 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function hasBeenIssuedBeforeShouldReturnTrueWhenIssueTimeIsEqualsToNow(): void
     {
-        $now = new DateTime();
+        $now   = new DateTimeImmutable();
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::ISSUED_AT => $now->getTimestamp()], '')
+            new DataSet([RegisteredClaims::ISSUED_AT => $now], '')
         );
 
         self::assertTrue($token->hasBeenIssuedBefore($now));
@@ -486,7 +382,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::hasBeenIssuedBefore
+     * @covers ::hasBeenIssuedBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -494,10 +390,10 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function hasBeenIssuedBeforeShouldReturnFalseWhenIssueTimeIsGreaterThanNow(): void
     {
-        $now = new DateTime();
+        $now   = new DateTimeImmutable();
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::ISSUED_AT => $now->getTimestamp() + 100], '')
+            new DataSet([RegisteredClaims::ISSUED_AT => $now->modify('+100 seconds')], '')
         );
 
         self::assertFalse($token->hasBeenIssuedBefore($now));
@@ -506,7 +402,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isMinimumTimeBefore
+     * @covers ::isMinimumTimeBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -516,13 +412,13 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     {
         $token = $this->createToken();
 
-        self::assertTrue($token->isMinimumTimeBefore(new DateTime()));
+        self::assertTrue($token->isMinimumTimeBefore(new DateTimeImmutable()));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isMinimumTimeBefore
+     * @covers ::isMinimumTimeBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -530,10 +426,10 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function isMinimumTimeBeforeShouldReturnTrueWhenNotBeforeClaimIsBeforeThanNow(): void
     {
-        $now = new DateTime();
+        $now   = new DateTimeImmutable();
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::NOT_BEFORE => $now->getTimestamp() - 100], '')
+            new DataSet([RegisteredClaims::NOT_BEFORE => $now->modify('-100 seconds')], '')
         );
 
         self::assertTrue($token->isMinimumTimeBefore($now));
@@ -542,7 +438,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isMinimumTimeBefore
+     * @covers ::isMinimumTimeBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -550,10 +446,10 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function isMinimumTimeBeforeShouldReturnTrueWhenNotBeforeClaimIsEqualsToNow(): void
     {
-        $now = new DateTime();
+        $now   = new DateTimeImmutable();
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::NOT_BEFORE => $now->getTimestamp()], '')
+            new DataSet([RegisteredClaims::NOT_BEFORE => $now], '')
         );
 
         self::assertTrue($token->isMinimumTimeBefore($now));
@@ -562,7 +458,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isMinimumTimeBefore
+     * @covers ::isMinimumTimeBefore
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -570,10 +466,10 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function isMinimumTimeBeforeShouldReturnFalseWhenNotBeforeClaimIsGreaterThanNow(): void
     {
-        $now = new DateTime();
+        $now   = new DateTimeImmutable();
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::NOT_BEFORE => $now->getTimestamp() + 100], '')
+            new DataSet([RegisteredClaims::NOT_BEFORE => $now->modify('100 seconds')], '')
         );
 
         self::assertFalse($token->isMinimumTimeBefore($now));
@@ -582,7 +478,7 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isExpired
+     * @covers ::isExpired
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -592,13 +488,13 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     {
         $token = $this->createToken();
 
-        self::assertFalse($token->isExpired(new DateTime()));
+        self::assertFalse($token->isExpired(new DateTimeImmutable()));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isExpired
+     * @covers ::isExpired
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -606,29 +502,11 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function isExpiredShouldReturnFalseWhenTokenIsNotExpired(): void
     {
+        $now = new DateTimeImmutable();
+
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::EXPIRATION_TIME => time() + 500], '')
-        );
-
-        self::assertFalse($token->isExpired(new DateTime()));
-    }
-
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::isExpired
-     *
-     * @uses \Lcobucci\JWT\Token\Plain::__construct
-     * @uses \Lcobucci\JWT\Token\DataSet
-     * @uses \Lcobucci\JWT\Token\Signature
-     */
-    public function isExpiredShouldReturnFalseWhenExpirationIsEqualsToNow(): void
-    {
-        $now = new DateTime();
-        $token = $this->createToken(
-            null,
-            new DataSet([RegisteredClaims::EXPIRATION_TIME => $now->getTimestamp()], '')
+            new DataSet([RegisteredClaims::EXPIRATION_TIME => $now->modify('+500 seconds')], '')
         );
 
         self::assertFalse($token->isExpired($now));
@@ -637,7 +515,28 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\Plain::isExpired
+     * @covers ::isExpired
+     *
+     * @uses \Lcobucci\JWT\Token\Plain::__construct
+     * @uses \Lcobucci\JWT\Token\DataSet
+     * @uses \Lcobucci\JWT\Token\Signature
+     */
+    public function isExpiredShouldReturnFalseWhenExpirationIsEqualsToNow(): void
+    {
+        $now = new DateTimeImmutable();
+
+        $token = $this->createToken(
+            null,
+            new DataSet([RegisteredClaims::EXPIRATION_TIME => $now], '')
+        );
+
+        self::assertFalse($token->isExpired($now));
+    }
+
+    /**
+     * @test
+     *
+     * @covers ::isExpired
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
@@ -645,44 +544,46 @@ final class PlainTest extends \PHPUnit\Framework\TestCase
      */
     public function isExpiredShouldReturnTrueAfterTokenExpires(): void
     {
+        $now = new DateTimeImmutable();
+
         $token = $this->createToken(
             null,
-            new DataSet([RegisteredClaims::EXPIRATION_TIME => time()], '')
+            new DataSet([RegisteredClaims::EXPIRATION_TIME => $now], '')
         );
 
-        self::assertTrue($token->isExpired(new DateTime('+10 days')));
+        self::assertTrue($token->isExpired($now->modify('+10 days')));
     }
 
     /**
      * @test
+     *
+     * @covers ::toString
      *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\Plain::payload
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::__toString
      */
     public function toStringMustReturnEncodedDataWithEmptySignature(): void
     {
         $token = $this->createToken(null, null, Signature::fromEmptyData());
 
-        self::assertEquals('headers.claims.', (string) $token);
+        self::assertSame('headers.claims.', $token->toString());
     }
 
     /**
      * @test
      *
+     * @covers ::toString
+     *
      * @uses \Lcobucci\JWT\Token\Plain::__construct
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Signature
-     *
-     * @covers \Lcobucci\JWT\Token\Plain::__toString
      */
     public function toStringMustReturnEncodedData(): void
     {
         $token = $this->createToken();
 
-        self::assertEquals('headers.claims.signature', (string) $token);
+        self::assertSame('headers.claims.signature', $token->toString());
     }
 }

@@ -1,41 +1,36 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Signer\Rsa;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 2.1.0
- */
-final class Sha384Test extends \PHPUnit\Framework\TestCase
+use PHPUnit\Framework\TestCase;
+
+use const OPENSSL_ALGO_SHA384;
+
+/** @coversDefaultClass \Lcobucci\JWT\Signer\Rsa\Sha384 */
+final class Sha384Test extends TestCase
 {
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Signer\Rsa\Sha384::getAlgorithmId
+     * @covers ::algorithmId
      */
-    public function getAlgorithmIdMustBeCorrect(): void
+    public function algorithmIdMustBeCorrect(): void
     {
         $signer = new Sha384();
 
-        self::assertEquals('RS384', $signer->getAlgorithmId());
+        self::assertEquals('RS384', $signer->algorithmId());
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Signer\Rsa\Sha384::getAlgorithm
+     * @covers ::algorithm
      */
-    public function getAlgorithmMustBeCorrect(): void
+    public function algorithmMustBeCorrect(): void
     {
         $signer = new Sha384();
 
-        self::assertEquals(OPENSSL_ALGO_SHA384, $signer->getAlgorithm());
+        self::assertEquals(OPENSSL_ALGO_SHA384, $signer->algorithm());
     }
 }

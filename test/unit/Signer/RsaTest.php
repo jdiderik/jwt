@@ -1,56 +1,58 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Signer;
 
 use Lcobucci\JWT\Keys;
+use Lcobucci\JWT\Signer\Key\InMemory;
+use OpenSSLAsymmetricKey;
+use PHPUnit\Framework\TestCase;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 4.0.0
- */
-final class RsaTest extends \PHPUnit\Framework\TestCase
+use function assert;
+use function is_resource;
+use function openssl_pkey_get_private;
+use function openssl_pkey_get_public;
+use function openssl_sign;
+use function openssl_verify;
+
+use const OPENSSL_ALGO_SHA256;
+
+/** @coversDefaultClass \Lcobucci\JWT\Signer\Rsa */
+final class RsaTest extends TestCase
 {
     use Keys;
 
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::sign
+     * @covers ::keyType
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
      *
-     * @covers \Lcobucci\JWT\Signer\Rsa::sign
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\LocalFileReference
      */
     public function signShouldReturnAValidOpensslSignature(): void
     {
         $payload = 'testing';
 
-        $signer = $this->getSigner();
+        $signer    = $this->getSigner();
         $signature = $signer->sign($payload, self::$rsaKeys['private']);
 
-        $publicKey = openssl_get_publickey(self::$rsaKeys['public']->getContent());
+        $publicKey = openssl_pkey_get_public(self::$rsaKeys['public']->contents());
+        assert(is_resource($publicKey) || $publicKey instanceof OpenSSLAsymmetricKey);
+
         self::assertSame(1, openssl_verify($payload, $signature, $publicKey, OPENSSL_ALGO_SHA256));
     }
 
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::sign
+     * @covers ::keyType
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
+     * @covers \Lcobucci\JWT\Signer\CannotSignPayload
      *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Signer\Rsa::sign
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function signShouldRaiseAnExceptionWhenKeyIsInvalid(): void
     {
@@ -63,59 +65,67 @@ TWdN
 KEY;
 
         $signer = $this->getSigner();
-        $signer->sign('testing', new Key($key));
+
+        $this->expectException(CannotSignPayload::class);
+        $this->expectExceptionMessage('There was an error while creating the signature');
+
+        $signer->sign('testing', InMemory::plainText($key));
     }
 
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::sign
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
+     * @covers \Lcobucci\JWT\Signer\InvalidKeyProvided
      *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Signer\Rsa::sign
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function signShouldRaiseAnExceptionWhenKeyIsNotParseable(): void
     {
         $signer = $this->getSigner();
-        $signer->sign('testing', new Key('blablabla'));
+
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('It was not possible to parse your key');
+
+        $signer->sign('testing', InMemory::plainText('blablabla'));
     }
 
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::sign
+     * @covers ::keyType
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
+     * @covers \Lcobucci\JWT\Signer\InvalidKeyProvided
      *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Signer\Rsa::sign
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\LocalFileReference
      */
     public function signShouldRaiseAnExceptionWhenKeyTypeIsNotRsa(): void
     {
         $signer = $this->getSigner();
+
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('This key is not compatible with this signer');
+
         $signer->sign('testing', self::$ecdsaKeys['private']);
     }
 
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::verify
+     * @covers ::keyType
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
      *
-     * @covers \Lcobucci\JWT\Signer\Rsa::verify
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\LocalFileReference
      */
-    public function verifyShouldReturnAValidOpensslSignature(): void
+    public function verifyShouldReturnTrueWhenSignatureIsValid(): void
     {
-        $payload = 'testing';
-        $privateKey = openssl_get_privatekey(self::$rsaKeys['private']->getContent());
+        $payload    = 'testing';
+        $privateKey = openssl_pkey_get_private(self::$rsaKeys['private']->contents());
+        assert(is_resource($privateKey) || $privateKey instanceof OpenSSLAsymmetricKey);
+
         $signature = '';
         openssl_sign($payload, $signature, $privateKey, OPENSSL_ALGO_SHA256);
 
@@ -127,36 +137,38 @@ KEY;
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::verify
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
+     * @covers \Lcobucci\JWT\Signer\InvalidKeyProvided
      *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Signer\Rsa::verify
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function verifyShouldRaiseAnExceptionWhenKeyIsNotParseable(): void
     {
         $signer = $this->getSigner();
-        $signer->verify('testing', 'testing', new Key('blablabla'));
+
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('It was not possible to parse your key');
+
+        $signer->verify('testing', 'testing', InMemory::plainText('blablabla'));
     }
 
     /**
      * @test
      *
-     * @requires extension openssl
+     * @covers ::verify
+     * @covers \Lcobucci\JWT\Signer\OpenSSL
+     * @covers \Lcobucci\JWT\Signer\InvalidKeyProvided
      *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Signer\Rsa::verify
-     * @covers \Lcobucci\JWT\Signer\Rsa::validateKey
-     *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @uses \Lcobucci\JWT\Signer\Key\LocalFileReference
      */
     public function verifyShouldRaiseAnExceptionWhenKeyTypeIsNotRsa(): void
     {
         $signer = $this->getSigner();
+
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('It was not possible to parse your key');
+
         $signer->verify('testing', 'testing', self::$ecdsaKeys['private']);
     }
 
@@ -164,10 +176,10 @@ KEY;
     {
         $signer = $this->getMockForAbstractClass(Rsa::class);
 
-        $signer->method('getAlgorithm')
+        $signer->method('algorithm')
                ->willReturn(OPENSSL_ALGO_SHA256);
 
-        $signer->method('getAlgorithmId')
+        $signer->method('algorithmId')
                ->willReturn('RS256');
 
         return $signer;

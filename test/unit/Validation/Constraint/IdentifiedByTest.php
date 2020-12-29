@@ -1,23 +1,19 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\Validation\Constraint;
 
 use Lcobucci\JWT\Token\RegisteredClaims;
+use Lcobucci\JWT\Validation\ConstraintViolation;
 
+/** @coversDefaultClass \Lcobucci\JWT\Validation\Constraint\IdentifiedBy */
 final class IdentifiedByTest extends ConstraintTestCase
 {
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -25,6 +21,9 @@ final class IdentifiedByTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenIdIsNotSet(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not identified with the expected ID');
+
         $constraint = new IdentifiedBy('123456');
         $constraint->assert($this->buildToken());
     }
@@ -32,10 +31,8 @@ final class IdentifiedByTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\ConstraintViolationException
-     *
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -43,6 +40,9 @@ final class IdentifiedByTest extends ConstraintTestCase
      */
     public function assertShouldRaiseExceptionWhenIdDoesNotMatch(): void
     {
+        $this->expectException(ConstraintViolation::class);
+        $this->expectExceptionMessage('The token is not identified with the expected ID');
+
         $constraint = new IdentifiedBy('123456');
         $constraint->assert($this->buildToken([RegisteredClaims::ID => 15]));
     }
@@ -50,8 +50,8 @@ final class IdentifiedByTest extends ConstraintTestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy::__construct
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy::assert
+     * @covers ::__construct
+     * @covers ::assert
      *
      * @uses \Lcobucci\JWT\Token\DataSet
      * @uses \Lcobucci\JWT\Token\Plain
@@ -62,6 +62,8 @@ final class IdentifiedByTest extends ConstraintTestCase
         $token = $this->buildToken([RegisteredClaims::ID => '123456']);
 
         $constraint = new IdentifiedBy('123456');
-        self::assertNull($constraint->assert($token));
+
+        $constraint->assert($token);
+        $this->addToAssertionCount(1);
     }
 }

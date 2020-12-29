@@ -1,71 +1,74 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\FunctionalTests;
 
+use DateTimeImmutable;
+use Lcobucci\Clock\FrozenClock;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Token;
 use Lcobucci\JWT\Validation\Constraint;
 use Lcobucci\JWT\Validation\Constraint\IdentifiedBy;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
+use Lcobucci\JWT\Validation\Constraint\LooseValidAt;
 use Lcobucci\JWT\Validation\Constraint\PermittedFor;
-use Lcobucci\JWT\Validation\Constraint\ValidAt;
-use Lcobucci\JWT\Validation\ConstraintViolationException;
+use Lcobucci\JWT\Validation\ConstraintViolation;
+use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
+use PHPUnit\Framework\TestCase;
+
+use function assert;
 
 /**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 2.1.0
+ * @covers \Lcobucci\JWT\Configuration
+ * @covers \Lcobucci\JWT\Encoding\JoseEncoder
+ * @covers \Lcobucci\JWT\Encoding\ChainedFormatter
+ * @covers \Lcobucci\JWT\Encoding\MicrosecondBasedDateConversion
+ * @covers \Lcobucci\JWT\Encoding\UnifyAudience
+ * @covers \Lcobucci\JWT\Token\Builder
+ * @covers \Lcobucci\JWT\Token\Parser
+ * @covers \Lcobucci\JWT\Token\Plain
+ * @covers \Lcobucci\JWT\Token\DataSet
+ * @covers \Lcobucci\JWT\Token\Signature
+ * @covers \Lcobucci\JWT\Signer\None
+ * @covers \Lcobucci\JWT\Signer\Key\InMemory
+ * @covers \Lcobucci\JWT\Validation\RequiredConstraintsViolated
+ * @covers \Lcobucci\JWT\Validation\Validator
+ * @covers \Lcobucci\JWT\Validation\Constraint\IssuedBy
+ * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor
+ * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy
+ * @covers \Lcobucci\JWT\Validation\Constraint\LooseValidAt
  */
-class UnsignedTokenTest extends \PHPUnit\Framework\TestCase
+class UnsignedTokenTest extends TestCase
 {
-    const CURRENT_TIME = 100000;
+    public const CURRENT_TIME = 100000;
 
-    /**
-     * @var Configuration
-     */
-    private $config;
+    private Configuration $config;
 
-    /**
-     * @before
-     */
+    /** @before */
     public function createConfiguration(): void
     {
         $this->config = Configuration::forUnsecuredSigner();
     }
 
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\None
-     * @covers \Lcobucci\JWT\Signer\Key
-     */
+    /** @test */
     public function builderCanGenerateAToken(): Token
     {
-        $user = ['name' => 'testing', 'email' => 'testing@abc.com'];
-        $builder = $this->config->createBuilder();
+        $user    = ['name' => 'testing', 'email' => 'testing@abc.com'];
+        $builder = $this->config->builder();
+
+        $expiration = new DateTimeImmutable('@' . (self::CURRENT_TIME + 3000));
 
         $token = $builder->identifiedBy('1')
                          ->permittedFor('http://client.abc.com')
                          ->issuedBy('http://api.abc.com')
-                         ->expiresAt(self::CURRENT_TIME + 3000)
+                         ->expiresAt($expiration)
                          ->withClaim('user', $user)
-                         ->getToken($this->config->getSigner(), $this->config->getSigningKey());
+                         ->getToken($this->config->signer(), $this->config->signingKey());
 
-        self::assertAttributeEquals(new Token\Signature('', ''), 'signature', $token);
+        self::assertEquals(new Token\Signature('', ''), $token->signature());
         self::assertEquals(['http://client.abc.com'], $token->claims()->get(Token\RegisteredClaims::AUDIENCE));
         self::assertEquals('http://api.abc.com', $token->claims()->get(Token\RegisteredClaims::ISSUER));
-        self::assertEquals(self::CURRENT_TIME + 3000, $token->claims()->get(Token\RegisteredClaims::EXPIRATION_TIME));
+        self::assertSame($expiration, $token->claims()->get(Token\RegisteredClaims::EXPIRATION_TIME));
         self::assertEquals($user, $token->claims()->get('user'));
 
         return $token;
@@ -73,21 +76,12 @@ class UnsignedTokenTest extends \PHPUnit\Framework\TestCase
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\None
-     * @covers \Lcobucci\JWT\Signer\Key
      */
     public function parserCanReadAToken(Token $generated): void
     {
-        $read = $this->config->getParser()->parse((string) $generated);
+        $read = $this->config->parser()->parse($generated->toString());
+        assert($read instanceof Token\Plain);
 
         self::assertEquals($generated, $read);
         self::assertEquals('testing', $read->claims()->get('user')['name']);
@@ -95,105 +89,69 @@ class UnsignedTokenTest extends \PHPUnit\Framework\TestCase
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\None
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\Constraint\IssuedBy
-     * @covers \Lcobucci\JWT\Validation\Constraint\PermittedFor
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy
-     * @covers \Lcobucci\JWT\Validation\Constraint\ValidAt
      */
     public function tokenValidationShouldPassWhenEverythingIsFine(Token $generated): void
     {
+        $clock = new FrozenClock(new DateTimeImmutable('@' . self::CURRENT_TIME));
+
         $constraints = [
             new IdentifiedBy('1'),
             new PermittedFor('http://client.abc.com'),
             new IssuedBy('http://issuer.abc.com', 'http://api.abc.com'),
-            new ValidAt(new \DateTimeImmutable('@' . self::CURRENT_TIME))
+            new LooseValidAt($clock),
         ];
 
-        self::assertTrue($this->config->getValidator()->validate($generated, ...$constraints));
+        self::assertTrue($this->config->validator()->validate($generated, ...$constraints));
     }
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\None
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Validation\Validator
      */
     public function tokenValidationShouldAllowCustomConstraint(Token $generated): void
     {
-        self::assertTrue($this->config->getValidator()->validate($generated, $this->validUserConstraint()));
+        self::assertTrue($this->config->validator()->validate($generated, $this->validUserConstraint()));
     }
 
     /**
      * @test
-     *
-     * @expectedException \Lcobucci\JWT\Validation\InvalidTokenException
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\None
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\InvalidTokenException
-     * @covers \Lcobucci\JWT\Validation\Constraint\IssuedBy
-     * @covers \Lcobucci\JWT\Validation\Constraint\IdentifiedBy
      */
     public function tokenAssertionShouldRaiseExceptionWhenOneOfTheConstraintsFails(Token $generated): void
     {
         $constraints = [
             new IdentifiedBy('1'),
-            new IssuedBy('http://issuer.abc.com')
+            new IssuedBy('http://issuer.abc.com'),
         ];
 
-        $this->config->getValidator()->assert($generated, ...$constraints);
+        $this->expectException(RequiredConstraintsViolated::class);
+        $this->expectExceptionMessage('The token violates some mandatory constraints');
+
+        $this->config->validator()->assert($generated, ...$constraints);
     }
 
     private function validUserConstraint(): Constraint
     {
-        return new class() implements Constraint
+        return new class () implements Constraint
         {
             public function assert(Token $token): void
             {
-                if (!$token instanceof Token\Plain) {
-                    throw new ConstraintViolationException();
+                if (! $token instanceof Token\Plain) {
+                    throw new ConstraintViolation();
                 }
 
                 $claims = $token->claims();
 
-                if (!$claims->has('user')) {
-                    throw new ConstraintViolationException();
+                if (! $claims->has('user')) {
+                    throw new ConstraintViolation();
                 }
 
-                $user = $claims->get('user');
+                $name  = $claims->get('user')['name'] ?? '';
+                $email = $claims->get('user')['email'] ?? '';
 
-                if (empty($user['name']) || empty($user['email'])) {
-                    throw new ConstraintViolationException();
+                if ($name === '' || $email === '') {
+                    throw new ConstraintViolation();
                 }
             }
         };

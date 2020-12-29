@@ -1,10 +1,4 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\FunctionalTests;
@@ -13,27 +7,49 @@ use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Keys;
 use Lcobucci\JWT\Signer\Ecdsa\Sha256;
 use Lcobucci\JWT\Signer\Ecdsa\Sha512;
-use Lcobucci\JWT\Signer\Key;
-use Lcobucci\JWT\Token\Signature;
+use Lcobucci\JWT\Signer\InvalidKeyProvided;
+use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
+use PHPUnit\Framework\TestCase;
+
+use function assert;
+
+use const PHP_EOL;
 
 /**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 2.1.0
+ * @covers \Lcobucci\JWT\Configuration
+ * @covers \Lcobucci\JWT\Encoding\JoseEncoder
+ * @covers \Lcobucci\JWT\Encoding\ChainedFormatter
+ * @covers \Lcobucci\JWT\Encoding\MicrosecondBasedDateConversion
+ * @covers \Lcobucci\JWT\Encoding\UnifyAudience
+ * @covers \Lcobucci\JWT\Token\Builder
+ * @covers \Lcobucci\JWT\Token\Parser
+ * @covers \Lcobucci\JWT\Token\Plain
+ * @covers \Lcobucci\JWT\Token\DataSet
+ * @covers \Lcobucci\JWT\Token\Signature
+ * @covers \Lcobucci\JWT\Signer\Key\LocalFileReference
+ * @covers \Lcobucci\JWT\Signer\Key\InMemory
+ * @covers \Lcobucci\JWT\Signer\Ecdsa
+ * @covers \Lcobucci\JWT\Signer\Ecdsa\MultibyteStringConverter
+ * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
+ * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha512
+ * @covers \Lcobucci\JWT\Signer\InvalidKeyProvided
+ * @covers \Lcobucci\JWT\Signer\OpenSSL
+ * @covers \Lcobucci\JWT\Validation\Validator
+ * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
+ * @covers \Lcobucci\JWT\Validation\Validator
+ * @covers \Lcobucci\JWT\Validation\RequiredConstraintsViolated
+ * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
  */
-class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
+class EcdsaTokenTest extends TestCase
 {
     use Keys;
 
-    /**
-     * @var Configuration
-     */
-    private $config;
+    private Configuration $config;
 
-    /**
-     * @before
-     */
+    /** @before */
     public function createConfiguration(): void
     {
         $this->config = Configuration::forAsymmetricSigner(
@@ -43,81 +59,41 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
         );
     }
 
-    /**
-     * @test
-     *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     */
+    /** @test */
     public function builderShouldRaiseExceptionWhenKeyIsInvalid(): void
     {
-        $builder = $this->config->createBuilder();
+        $builder = $this->config->builder();
+
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('It was not possible to parse your key, reason:');
 
         $builder->identifiedBy('1')
                 ->permittedFor('http://client.abc.com')
                 ->issuedBy('http://api.abc.com')
                 ->withClaim('user', ['name' => 'testing', 'email' => 'testing@abc.com'])
-                ->getToken($this->config->getSigner(), new Key('testing'));
+                ->getToken($this->config->signer(), InMemory::plainText('testing'));
     }
 
-    /**
-     * @test
-     *
-     * @expectedException \InvalidArgumentException
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     */
+    /** @test */
     public function builderShouldRaiseExceptionWhenKeyIsNotEcdsaCompatible(): void
     {
-        $builder = $this->config->createBuilder();
+        $builder = $this->config->builder();
+
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('This key is not compatible with this signer');
 
         $builder->identifiedBy('1')
                 ->permittedFor('http://client.abc.com')
                 ->issuedBy('http://api.abc.com')
                 ->withClaim('user', ['name' => 'testing', 'email' => 'testing@abc.com'])
-                ->getToken($this->config->getSigner(), static::$rsaKeys['private']);
+                ->getToken($this->config->signer(), static::$rsaKeys['private']);
     }
 
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     */
+    /** @test */
     public function builderCanGenerateAToken(): Token
     {
-        $user = ['name' => 'testing', 'email' => 'testing@abc.com'];
-        $builder = $this->config->createBuilder();
+        $user    = ['name' => 'testing', 'email' => 'testing@abc.com'];
+        $builder = $this->config->builder();
 
         $token = $builder->identifiedBy('1')
                          ->permittedFor('http://client.abc.com')
@@ -125,36 +101,28 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
                          ->issuedBy('http://api.abc.com')
                          ->withClaim('user', $user)
                          ->withHeader('jki', '1234')
-                         ->getToken($this->config->getSigner(), $this->config->getSigningKey());
+                         ->getToken($this->config->signer(), $this->config->signingKey());
 
-        self::assertAttributeInstanceOf(Signature::class, 'signature', $token);
         self::assertEquals('1234', $token->headers()->get('jki'));
-        self::assertEquals(['http://client.abc.com', 'http://client2.abc.com'], $token->claims()->get(Token\RegisteredClaims::AUDIENCE));
         self::assertEquals('http://api.abc.com', $token->claims()->get(Token\RegisteredClaims::ISSUER));
         self::assertEquals($user, $token->claims()->get('user'));
+
+        self::assertEquals(
+            ['http://client.abc.com', 'http://client2.abc.com'],
+            $token->claims()->get(Token\RegisteredClaims::AUDIENCE)
+        );
 
         return $token;
     }
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
      */
     public function parserCanReadAToken(Token $generated): void
     {
-        $read = $this->config->getParser()->parse((string) $generated);
+        $read = $this->config->parser()->parse($generated->toString());
+        assert($read instanceof Token\Plain);
 
         self::assertEquals($generated, $read);
         self::assertEquals('testing', $read->claims()->get('user')['name']);
@@ -162,33 +130,17 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @expectedException \Lcobucci\JWT\Validation\InvalidTokenException
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\InvalidTokenException
-     * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
      */
     public function signatureAssertionShouldRaiseExceptionWhenKeyIsNotRight(Token $token): void
     {
-        $this->config->getValidator()->assert(
+        $this->expectException(RequiredConstraintsViolated::class);
+        $this->expectExceptionMessage('The token violates some mandatory constraints');
+
+        $this->config->validator()->assert(
             $token,
             new SignedWith(
-                $this->config->getSigner(),
+                $this->config->signer(),
                 self::$ecdsaKeys['public2']
             )
         );
@@ -196,31 +148,14 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @expectedException \Lcobucci\JWT\Validation\InvalidTokenException
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha512
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\InvalidTokenException
-     * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
      */
     public function signatureAssertionShouldRaiseExceptionWhenAlgorithmIsDifferent(Token $token): void
     {
-        $this->config->getValidator()->assert(
+        $this->expectException(RequiredConstraintsViolated::class);
+        $this->expectExceptionMessage('The token violates some mandatory constraints');
+
+        $this->config->validator()->assert(
             $token,
             new SignedWith(
                 Sha512::create(),
@@ -231,88 +166,38 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
 
     /**
      * @test
-     *
-     * @expectedException \RuntimeException
-     *
-     * @expectedException \Lcobucci\JWT\Validation\InvalidTokenException
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\InvalidTokenException
-     * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
      */
     public function signatureAssertionShouldRaiseExceptionWhenKeyIsNotEcdsaCompatible(Token $token): void
     {
-        $this->config->getValidator()->assert(
+        $this->expectException(InvalidKeyProvided::class);
+        $this->expectExceptionMessage('This key is not compatible with this signer');
+
+        $this->config->validator()->assert(
             $token,
-            new SignedWith($this->config->getSigner(), self::$rsaKeys['public'])
+            new SignedWith($this->config->signer(), self::$rsaKeys['public'])
         );
     }
 
     /**
      * @test
-     *
      * @depends builderCanGenerateAToken
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
      */
     public function signatureValidationShouldSucceedWhenKeyIsRight(Token $token): void
     {
         $constraint = new SignedWith(
-            $this->config->getSigner(),
-            $this->config->getVerificationKey()
+            $this->config->signer(),
+            $this->config->verificationKey()
         );
 
-        self::assertTrue($this->config->getValidator()->validate($token, $constraint));
+        self::assertTrue($this->config->validator()->validate($token, $constraint));
     }
 
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha256
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
-     */
+    /** @test */
     public function everythingShouldWorkWithAKeyWithParams(): void
     {
-        $builder = $this->config->createBuilder();
-        $signer = $this->config->getSigner();
+        $builder = $this->config->builder();
+        $signer  = $this->config->signer();
 
         $token = $builder->identifiedBy('1')
                          ->permittedFor('http://client.abc.com')
@@ -322,31 +207,14 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
                          ->getToken($signer, static::$ecdsaKeys['private-params']);
 
         $constraint = new SignedWith(
-            $this->config->getSigner(),
+            $this->config->signer(),
             static::$ecdsaKeys['public-params']
         );
 
-        self::assertTrue($this->config->getValidator()->validate($token, $constraint));
+        self::assertTrue($this->config->validator()->validate($token, $constraint));
     }
 
-    /**
-     * @test
-     *
-     * @covers \Lcobucci\JWT\Configuration
-     * @covers \Lcobucci\JWT\Token\Builder
-     * @covers \Lcobucci\JWT\Token\Parser
-     * @covers \Lcobucci\JWT\Token\Plain
-     * @covers \Lcobucci\JWT\Token\DataSet
-     * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
-     * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha512
-     * @covers \Lcobucci\JWT\Validation\Validator
-     * @covers \Lcobucci\JWT\Validation\Constraint\SignedWith
-     */
+    /** @test */
     public function everythingShouldWorkWhenUsingATokenGeneratedByOtherLibs(): void
     {
         $data = 'eyJhbGciOiJFUzUxMiIsInR5cCI6IkpXVCJ9.eyJoZWxsbyI6IndvcmxkIn0.'
@@ -361,10 +229,11 @@ class EcdsaTokenTest extends \PHPUnit\Framework\TestCase
                . 'mZudf1zCUZ8/4eodlHU=' . PHP_EOL
                . '-----END PUBLIC KEY-----';
 
-        $token = $this->config->getParser()->parse((string) $data);
-        $constraint = new SignedWith(Sha512::create(), new Key($key));
+        $token = $this->config->parser()->parse($data);
+        assert($token instanceof Token\Plain);
+        $constraint = new SignedWith(Sha512::create(), InMemory::plainText($key));
 
-        self::assertTrue($this->config->getValidator()->validate($token, $constraint));
+        self::assertTrue($this->config->validator()->validate($token, $constraint));
         self::assertEquals('world', $token->claims()->get('hello'));
     }
 }

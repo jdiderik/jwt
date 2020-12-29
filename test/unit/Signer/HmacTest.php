@@ -1,84 +1,75 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Signer;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 0.1.0
- */
-final class HmacTest extends \PHPUnit\Framework\TestCase
-{
-    /**
-     * @var Hmac|\PHPUnit_Framework_MockObject_MockObject
-     */
-    protected $signer;
+use Lcobucci\JWT\Signer\Key\InMemory;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 
-    /**
-     * @before
-     */
+use function hash_hmac;
+
+/** @coversDefaultClass \Lcobucci\JWT\Signer\Hmac */
+final class HmacTest extends TestCase
+{
+    /** @var Hmac&MockObject */
+    protected Hmac $signer;
+
+    /** @before */
     public function initializeDependencies(): void
     {
         $this->signer = $this->getMockForAbstractClass(Hmac::class);
 
-        $this->signer->expects($this->any())
-                     ->method('getAlgorithmId')
+        $this->signer->expects(self::any())
+                     ->method('algorithmId')
                      ->willReturn('TEST123');
 
-        $this->signer->expects($this->any())
-                     ->method('getAlgorithm')
+        $this->signer->expects(self::any())
+                     ->method('algorithm')
                      ->willReturn('sha256');
     }
 
     /**
      * @test
      *
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @covers ::sign
      *
-     * @covers \Lcobucci\JWT\Signer\Hmac::sign
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function signMustReturnAHashAccordingWithTheAlgorithm(): string
     {
         $hash = hash_hmac('sha256', 'test', '123', true);
 
-        self::assertEquals($hash, $this->signer->sign('test', new Key('123')));
+        self::assertEquals($hash, $this->signer->sign('test', InMemory::plainText('123')));
 
         return $hash;
     }
 
     /**
      * @test
-     *
      * @depends signMustReturnAHashAccordingWithTheAlgorithm
      *
-     * @uses \Lcobucci\JWT\Signer\Hmac::sign
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @covers ::verify
      *
-     * @covers \Lcobucci\JWT\Signer\Hmac::verify
+     * @uses \Lcobucci\JWT\Signer\Hmac::sign
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function verifyShouldReturnTrueWhenExpectedHashWasCreatedWithSameInformation(string $expected): void
     {
-        self::assertTrue($this->signer->verify($expected, 'test', new Key('123')));
+        self::assertTrue($this->signer->verify($expected, 'test', InMemory::plainText('123')));
     }
 
     /**
      * @test
-     *
      * @depends signMustReturnAHashAccordingWithTheAlgorithm
      *
-     * @uses \Lcobucci\JWT\Signer\Hmac::sign
-     * @uses \Lcobucci\JWT\Signer\Key
+     * @covers ::verify
      *
-     * @covers \Lcobucci\JWT\Signer\Hmac::verify
+     * @uses \Lcobucci\JWT\Signer\Hmac::sign
+     * @uses \Lcobucci\JWT\Signer\Key\InMemory
      */
     public function verifyShouldReturnFalseWhenExpectedHashWasNotCreatedWithSameInformation(string $expected): void
     {
-        self::assertFalse($this->signer->verify($expected, 'test', new Key('1234')));
+        self::assertFalse($this->signer->verify($expected, 'test', InMemory::plainText('1234')));
     }
 }

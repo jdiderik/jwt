@@ -1,31 +1,20 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT;
 
 use Lcobucci\JWT\Validation\Constraint;
-use Lcobucci\JWT\Validation\InvalidTokenException;
+use Lcobucci\JWT\Validation\NoConstraintsGiven;
+use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @author Danny Dörfel <danny.dorfel@gmail.com>
- * @author Marco Pivetta <ocramius@gmail.com>
- * @author Henrique Moody <henriquemoody@gmail.com>
- *
- * @since 4.0.0
- */
 interface Validator
 {
     /**
-     * @throws InvalidTokenException
+     * @throws RequiredConstraintsViolated
+     * @throws NoConstraintsGiven
      */
     public function assert(Token $token, Constraint ...$constraints): void;
 
+    /** @throws NoConstraintsGiven */
     public function validate(Token $token, Constraint ...$constraints): bool;
 }

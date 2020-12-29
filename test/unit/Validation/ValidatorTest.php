@@ -1,24 +1,19 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\Validation;
 
 use Lcobucci\JWT\Token;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 
-final class ValidatorTest extends \PHPUnit\Framework\TestCase
+/** @coversDefaultClass \Lcobucci\JWT\Validation\Validator */
+final class ValidatorTest extends TestCase
 {
-    /**
-     * @var Token|\PHPUnit_Framework_MockObject_MockObject
-     */
-    private $token;
+    /** @var Token&MockObject */
+    private Token $token;
 
-    /**
-     * @before
-     */
+    /** @before */
     public function createDependencies(): void
     {
         $this->token = $this->createMock(Token::class);
@@ -27,26 +22,41 @@ final class ValidatorTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @expectedException \Lcobucci\JWT\Validation\InvalidTokenException
+     * @covers ::assert
+     */
+    public function assertShouldRaiseExceptionWhenNoConstraintIsGiven(): void
+    {
+        $validator = new Validator();
+
+        $this->expectException(NoConstraintsGiven::class);
+
+        $validator->assert($this->token, ...[]);
+    }
+
+    /**
+     * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Validator::assert
-     * @covers \Lcobucci\JWT\Validation\Validator::checkConstraint
+     * @covers ::assert
+     * @covers ::checkConstraint
      *
-     * @uses \Lcobucci\JWT\Validation\InvalidTokenException
+     * @uses \Lcobucci\JWT\Validation\RequiredConstraintsViolated
      */
     public function assertShouldRaiseExceptionWhenAtLeastOneConstraintFails(): void
     {
-        $failedConstraint = $this->createMock(Constraint::class);
+        $failedConstraint     = $this->createMock(Constraint::class);
         $successfulConstraint = $this->createMock(Constraint::class);
 
-        $failedConstraint->expects($this->once())
+        $failedConstraint->expects(self::once())
                          ->method('assert')
-                         ->willThrowException(new ConstraintViolationException());
+                         ->willThrowException(new ConstraintViolation());
 
-        $successfulConstraint->expects($this->once())
+        $successfulConstraint->expects(self::once())
                              ->method('assert');
 
         $validator = new Validator();
+
+        $this->expectException(RequiredConstraintsViolated::class);
+        $this->expectExceptionMessage('The token violates some mandatory constraints');
 
         $validator->assert(
             $this->token,
@@ -58,33 +68,49 @@ final class ValidatorTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Validator::assert
-     * @covers \Lcobucci\JWT\Validation\Validator::checkConstraint
+     * @covers ::assert
+     * @covers ::checkConstraint
      */
     public function assertShouldNotRaiseExceptionWhenNoConstraintFails(): void
     {
         $constraint = $this->createMock(Constraint::class);
-        $constraint->expects($this->once())->method('assert');
+        $constraint->expects(self::once())->method('assert');
 
         $validator = new Validator();
-        self::assertNull($validator->assert($this->token, $constraint));
+
+        $validator->assert($this->token, $constraint);
+        $this->addToAssertionCount(1);
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Validator::validate
+     * @covers ::validate
+     */
+    public function validateShouldRaiseExceptionWhenNoConstraintIsGiven(): void
+    {
+        $validator = new Validator();
+
+        $this->expectException(NoConstraintsGiven::class);
+
+        $validator->validate($this->token, ...[]);
+    }
+
+    /**
+     * @test
+     *
+     * @covers ::validate
      */
     public function validateShouldReturnFalseWhenAtLeastOneConstraintFails(): void
     {
-        $failedConstraint = $this->createMock(Constraint::class);
+        $failedConstraint     = $this->createMock(Constraint::class);
         $successfulConstraint = $this->createMock(Constraint::class);
 
-        $failedConstraint->expects($this->once())
+        $failedConstraint->expects(self::once())
                          ->method('assert')
-                         ->willThrowException(new ConstraintViolationException());
+                         ->willThrowException(new ConstraintViolation());
 
-        $successfulConstraint->expects($this->never())
+        $successfulConstraint->expects(self::never())
                              ->method('assert');
 
         $validator = new Validator();
@@ -101,12 +127,12 @@ final class ValidatorTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Validation\Validator::validate
+     * @covers ::validate
      */
     public function validateShouldReturnTrueWhenNoConstraintFails(): void
     {
         $constraint = $this->createMock(Constraint::class);
-        $constraint->expects($this->once())->method('assert');
+        $constraint->expects(self::once())->method('assert');
 
         $validator = new Validator();
         self::assertTrue($validator->validate($this->token, $constraint));

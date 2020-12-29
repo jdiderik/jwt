@@ -1,59 +1,57 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT;
 
 use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Signer\Key\LocalFileReference;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- */
 trait Keys
 {
-    /**
-     * @var array
-     */
-    protected static $rsaKeys;
+    /** @var array<string, Key> */
+    protected static array $rsaKeys;
 
-    /**
-     * @var array
-     */
-    protected static $ecdsaKeys;
+    /** @var array<string, Key> */
+    protected static array $ecdsaKeys;
 
-    /**
-     * @beforeClass
-     */
-    public static function createRsaKeys()
+    /** @var array<string, Key> */
+    protected static array $eddsaKeys;
+
+    /** @beforeClass */
+    public static function createRsaKeys(): void
     {
-        $dir = 'file://' . __DIR__;
-
         static::$rsaKeys = [
-            'private' => new Key($dir . '/rsa/private.key'),
-            'public' => new Key($dir . '/rsa/public.key'),
-            'encrypted-private' => new Key($dir . '/rsa/encrypted-private.key', 'testing'),
-            'encrypted-public' => new Key($dir . '/rsa/encrypted-public.key')
+            'private'           => LocalFileReference::file(__DIR__ . '/rsa/private.key'),
+            'public'            => LocalFileReference::file(__DIR__ . '/rsa/public.key'),
+            'encrypted-private' => LocalFileReference::file(__DIR__ . '/rsa/encrypted-private.key', 'testing'),
+            'encrypted-public'  => LocalFileReference::file(__DIR__ . '/rsa/encrypted-public.key'),
         ];
     }
 
-    /**
-     * @beforeClass
-     */
-    public static function createEcdsaKeys()
+    /** @beforeClass */
+    public static function createEcdsaKeys(): void
     {
-        $dir = 'file://' . __DIR__;
-
         static::$ecdsaKeys = [
-            'private' => new Key($dir . '/ecdsa/private.key'),
-            'private-params' => new Key($dir . '/ecdsa/private2.key'),
-            'public1' => new Key($dir . '/ecdsa/public1.key'),
-            'public2' => new Key($dir . '/ecdsa/public2.key'),
-            'public-params' => new Key($dir . '/ecdsa/public3.key'),
+            'private'        => LocalFileReference::file(__DIR__ . '/ecdsa/private.key'),
+            'private-params' => LocalFileReference::file(__DIR__ . '/ecdsa/private2.key'),
+            'public1'        => LocalFileReference::file(__DIR__ . '/ecdsa/public1.key'),
+            'public2'        => LocalFileReference::file(__DIR__ . '/ecdsa/public2.key'),
+            'public-params'  => LocalFileReference::file(__DIR__ . '/ecdsa/public3.key'),
+            'private_ec512'  => LocalFileReference::file(__DIR__ . '/ecdsa/private_ec512.key'),
+            'public_ec512'   => LocalFileReference::file(__DIR__ . '/ecdsa/public_ec512.key'),
+            'public2_ec512'  => LocalFileReference::file(__DIR__ . '/ecdsa/public2_ec512.key'),
+        ];
+    }
+
+    /** @beforeClass */
+    public static function createEddsaKeys(): void
+    {
+        static::$eddsaKeys = [
+            'private' => Key\InMemory::base64Encoded(
+                'K3NWT0XqaH+4jgi42gQmHnFE+HTPVhFYi3u4DFJ3OpRHRMt/aGRBoKD/Pt5H/iYgGCla7Q04CdjOUpLSrjZhtg=='
+            ),
+            'public1' => Key\InMemory::base64Encoded('R0TLf2hkQaCg/z7eR/4mIBgpWu0NOAnYzlKS0q42YbY='),
+            'public2' => Key\InMemory::base64Encoded('8uLLzCdMrIWcOrAxS/fteYyJhWIGH+wav2fNz8NZhvI='),
         ];
     }
 }

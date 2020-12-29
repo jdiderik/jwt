@@ -1,38 +1,38 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\FunctionalTests;
 
-use Lcobucci\Jose\Parsing\Parser;
 use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Keys;
 use Lcobucci\JWT\Signer\Ecdsa\Sha512 as ES512;
 use Lcobucci\JWT\Signer\Hmac\Sha256 as HS512;
-use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Signer\Key\InMemory;
+use Lcobucci\JWT\Token\Plain;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use PHPUnit\Framework\TestCase;
 
-final class MaliciousTamperingPreventionTest extends \PHPUnit\Framework\TestCase
+use function assert;
+use function explode;
+use function hash_hmac;
+use function implode;
+
+use const PHP_EOL;
+
+final class MaliciousTamperingPreventionTest extends TestCase
 {
     use Keys;
 
-    /**
-     * @var Configuration
-     */
-    private $config;
+    private Configuration $config;
 
-    /**
-     * @before
-     */
+    /** @before */
     public function createConfiguration(): void
     {
         $this->config = Configuration::forAsymmetricSigner(
             ES512::create(),
-            new Key('my-private-key'),
-            new Key(
+            InMemory::plainText('my-private-key'),
+            InMemory::plainText(
                 '-----BEGIN PUBLIC KEY-----' . PHP_EOL
                 . 'MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAcpkss6wI7PPlxj3t7A1RqMH3nvL4' . PHP_EOL
                 . 'L5Tzxze/XeeYZnHqxiX+gle70DlGRMqqOq+PJ6RYX7vK0PJFdiAIXlyPQq0B3KaU' . PHP_EOL
@@ -47,16 +47,15 @@ final class MaliciousTamperingPreventionTest extends \PHPUnit\Framework\TestCase
      * @test
      *
      * @covers \Lcobucci\JWT\Configuration
+     * @covers \Lcobucci\JWT\Encoding\JoseEncoder
      * @covers \Lcobucci\JWT\Token\Builder
      * @covers \Lcobucci\JWT\Token\Parser
      * @covers \Lcobucci\JWT\Token\Plain
      * @covers \Lcobucci\JWT\Token\DataSet
      * @covers \Lcobucci\JWT\Token\Signature
-     * @covers \Lcobucci\JWT\Signer\Key
+     * @covers \Lcobucci\JWT\Signer\Key\InMemory
      * @covers \Lcobucci\JWT\Signer\Ecdsa
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\KeyParser
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\EccAdapter
-     * @covers \Lcobucci\JWT\Signer\Ecdsa\SignatureSerializer
+     * @covers \Lcobucci\JWT\Signer\Ecdsa\MultibyteStringConverter
      * @covers \Lcobucci\JWT\Signer\Ecdsa\Sha512
      * @covers \Lcobucci\JWT\Signer\Hmac
      * @covers \Lcobucci\JWT\Signer\Hmac\Sha256
@@ -80,29 +79,34 @@ final class MaliciousTamperingPreventionTest extends \PHPUnit\Framework\TestCase
          * Now, if we allow the attacker to dictate what Signer we use
          * (e.g. HMAC-SHA512 instead of ECDSA), they can forge messages!
          */
-        $token = $this->config->getParser()->parse((string) $bad);
+
+        $token = $this->config->parser()->parse($bad);
+        assert($token instanceof Plain);
 
         self::assertEquals('world', $token->claims()->get('hello'), 'The claim content should not be modified');
 
-        $validator = $this->config->getValidator();
+        $validator = $this->config->validator();
 
         self::assertFalse(
-            $validator->validate($token, new SignedWith(new HS512(), $this->config->getVerificationKey())),
+            $validator->validate($token, new SignedWith(new HS512(), $this->config->verificationKey())),
             'Using the attackers signer should make things unsafe'
         );
 
         self::assertFalse(
-            $validator->validate($token, new SignedWith($this->config->getSigner(), $this->config->getVerificationKey())),
+            $validator->validate(
+                $token,
+                new SignedWith(
+                    $this->config->signer(),
+                    $this->config->verificationKey()
+                )
+            ),
             'But we know which Signer should be used so the attack fails'
         );
     }
 
-    /**
-     * @ref https://auth0.com/blog/2015/03/31/critical-vulnerabilities-in-json-web-token-libraries/
-     */
     private function createMaliciousToken(string $token): string
     {
-        $dec = new Parser();
+        $dec     = new JoseEncoder();
         $asplode = explode('.', $token);
 
         // The user is lying; we insist that we're using HMAC-SHA512, with the
@@ -112,7 +116,7 @@ final class MaliciousTamperingPreventionTest extends \PHPUnit\Framework\TestCase
         $hmac = hash_hmac(
             'sha512',
             $asplode[0] . '.' . $asplode[1],
-            $this->config->getVerificationKey()->getContent(),
+            $this->config->verificationKey()->contents(),
             true
         );
 

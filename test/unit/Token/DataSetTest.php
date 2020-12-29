@@ -1,19 +1,18 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
+declare(strict_types=1);
 
 namespace Lcobucci\JWT\Token;
 
-final class DataSetTest extends \PHPUnit\Framework\TestCase
+use PHPUnit\Framework\TestCase;
+
+/** @coversDefaultClass \Lcobucci\JWT\Token\DataSet */
+final class DataSetTest extends TestCase
 {
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::get
+     * @covers ::__construct
+     * @covers ::get
      *
      * @uses \Lcobucci\JWT\Token\DataSet::has
      */
@@ -21,14 +20,14 @@ final class DataSetTest extends \PHPUnit\Framework\TestCase
     {
         $set = new DataSet(['one' => 1], 'one=1');
 
-        self::assertEquals(1, $set->get('one'));
+        self::assertSame(1, $set->get('one'));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::get
+     * @covers ::__construct
+     * @covers ::get
      *
      * @uses \Lcobucci\JWT\Token\DataSet::has
      */
@@ -36,14 +35,14 @@ final class DataSetTest extends \PHPUnit\Framework\TestCase
     {
         $set = new DataSet(['one' => 1], 'one=1');
 
-        self::assertEquals(2, $set->get('two', 2));
+        self::assertSame(2, $set->get('two', 2));
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::get
+     * @covers ::__construct
+     * @covers ::get
      *
      * @uses \Lcobucci\JWT\Token\DataSet::has
      */
@@ -57,8 +56,8 @@ final class DataSetTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::has
+     * @covers ::__construct
+     * @covers ::has
      */
     public function hasShouldReturnTrueWhenItemWasConfigured(): void
     {
@@ -70,8 +69,8 @@ final class DataSetTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::has
+     * @covers ::__construct
+     * @covers ::has
      */
     public function hasShouldReturnFalseWhenItemWasNotConfigured(): void
     {
@@ -83,27 +82,27 @@ final class DataSetTest extends \PHPUnit\Framework\TestCase
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::all
+     * @covers ::__construct
+     * @covers ::all
      */
     public function allShouldReturnAllConfiguredItems(): void
     {
         $items = ['one' => 1, 'two' => 2];
-        $set = new DataSet($items, 'one=1');
+        $set   = new DataSet($items, 'one=1');
 
-        self::assertEquals($items, $set->all());
+        self::assertSame($items, $set->all());
     }
 
     /**
      * @test
      *
-     * @covers \Lcobucci\JWT\Token\DataSet::__construct
-     * @covers \Lcobucci\JWT\Token\DataSet::__toString
+     * @covers ::__construct
+     * @covers ::toString
      */
     public function toStringShouldReturnTheEncodedData(): void
     {
         $set = new DataSet(['one' => 1], 'one=1');
 
-        self::assertEquals('one=1', (string) $set);
+        self::assertSame('one=1', $set->toString());
     }
 }

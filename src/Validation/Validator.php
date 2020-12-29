@@ -1,28 +1,18 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Validation;
 
 use Lcobucci\JWT\Token;
 
-/**
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- *
- * @since 4.0.0
- */
 final class Validator implements \Lcobucci\JWT\Validator
 {
-    /**
-     * {@inheritdoc}
-     */
     public function assert(Token $token, Constraint ...$constraints): void
     {
+        if ($constraints === []) {
+            throw new NoConstraintsGiven('No constraint given.');
+        }
+
         $violations = [];
 
         foreach ($constraints as $constraint) {
@@ -30,10 +20,11 @@ final class Validator implements \Lcobucci\JWT\Validator
         }
 
         if ($violations) {
-            throw InvalidTokenException::fromViolations(...$violations);
+            throw RequiredConstraintsViolated::fromViolations(...$violations);
         }
     }
 
+    /** @param ConstraintViolation[] $violations */
     private function checkConstraint(
         Constraint $constraint,
         Token $token,
@@ -41,20 +32,24 @@ final class Validator implements \Lcobucci\JWT\Validator
     ): void {
         try {
             $constraint->assert($token);
-        } catch (ConstraintViolationException $e) {
+        } catch (ConstraintViolation $e) {
             $violations[] = $e;
         }
     }
 
     public function validate(Token $token, Constraint ...$constraints): bool
     {
+        if ($constraints === []) {
+            throw new NoConstraintsGiven('No constraint given.');
+        }
+
         try {
             foreach ($constraints as $constraint) {
                 $constraint->assert($token);
             }
 
             return true;
-        } catch (ConstraintViolationException $e) {
+        } catch (ConstraintViolation $e) {
             return false;
         }
     }

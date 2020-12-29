@@ -1,48 +1,31 @@
 <?php
-/**
- * This file is part of Lcobucci\JWT, a simple library to handle JWT and JWS
- *
- * @license http://opensource.org/licenses/BSD-3-Clause BSD-3-Clause
- */
-
 declare(strict_types=1);
 
 namespace Lcobucci\JWT\Token;
 
-use InvalidArgumentException;
-use Lcobucci\Jose\Parsing;
+use DateTimeImmutable;
+use Lcobucci\JWT\Decoder;
 use Lcobucci\JWT\Parser as ParserInterface;
 use Lcobucci\JWT\Token as TokenInterface;
 
-/**
- * This class parses the JWT strings and convert them into tokens
- *
- * @author Luís Otávio Cobucci Oblonczyk <lcobucci@gmail.com>
- * @since 0.1.0
- */
+use function array_key_exists;
+use function count;
+use function explode;
+use function is_array;
+use function strpos;
+
 final class Parser implements ParserInterface
 {
-    /**
-     * The data decoder
-     *
-     * @var Parsing\Decoder
-     */
-    private $decoder;
+    private Decoder $decoder;
 
-    /**
-     * Initializes the object
-     */
-    public function __construct(Parsing\Decoder $decoder)
+    public function __construct(Decoder $decoder)
     {
         $this->decoder = $decoder;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function parse(string $jwt): TokenInterface
     {
-        list($encodedHeaders, $encodedClaims, $encodedSignature) = $this->splitJwt($jwt);
+        [$encodedHeaders, $encodedClaims, $encodedSignature] = $this->splitJwt($jwt);
 
         $header = $this->parseHeader($encodedHeaders);
 
@@ -56,14 +39,16 @@ final class Parser implements ParserInterface
     /**
      * Splits the JWT string into an array
      *
-     * @throws InvalidArgumentException When JWT doesn't have all parts
+     * @return string[]
+     *
+     * @throws InvalidTokenStructure When JWT doesn't have all parts.
      */
     private function splitJwt(string $jwt): array
     {
         $data = explode('.', $jwt);
 
         if (count($data) !== 3) {
-            throw new InvalidArgumentException('The JWT string must have two dots');
+            throw InvalidTokenStructure::missingOrNotEnoughSeparators();
         }
 
         return $data;
@@ -72,14 +57,25 @@ final class Parser implements ParserInterface
     /**
      * Parses the header from a string
      *
-     * @throws InvalidArgumentException When an invalid header is informed
+     * @return mixed[]
+     *
+     * @throws UnsupportedHeaderFound When an invalid header is informed.
+     * @throws InvalidTokenStructure  When parsed content isn't an array.
      */
     private function parseHeader(string $data): array
     {
-        $header = (array) $this->decoder->jsonDecode($this->decoder->base64UrlDecode($data));
+        $header = $this->decoder->jsonDecode($this->decoder->base64UrlDecode($data));
 
-        if (isset($header['enc'])) {
-            throw new InvalidArgumentException('Encryption is not supported yet');
+        if (! is_array($header)) {
+            throw InvalidTokenStructure::arrayExpected('headers');
+        }
+
+        if (array_key_exists('enc', $header)) {
+            throw UnsupportedHeaderFound::encryption();
+        }
+
+        if (! array_key_exists('typ', $header)) {
+            $header['typ'] = 'JWT';
         }
 
         return $header;
@@ -87,18 +83,58 @@ final class Parser implements ParserInterface
 
     /**
      * Parses the claim set from a string
+     *
+     * @return mixed[]
+     *
+     * @throws InvalidTokenStructure When parsed content isn't an array or contains non-parseable dates.
      */
     private function parseClaims(string $data): array
     {
-        return (array) $this->decoder->jsonDecode($this->decoder->base64UrlDecode($data));
+        $claims = $this->decoder->jsonDecode($this->decoder->base64UrlDecode($data));
+
+        if (! is_array($claims)) {
+            throw InvalidTokenStructure::arrayExpected('claims');
+        }
+
+        if (array_key_exists(RegisteredClaims::AUDIENCE, $claims)) {
+            $claims[RegisteredClaims::AUDIENCE] = (array) $claims[RegisteredClaims::AUDIENCE];
+        }
+
+        foreach (RegisteredClaims::DATE_CLAIMS as $claim) {
+            if (! array_key_exists($claim, $claims)) {
+                continue;
+            }
+
+            $claims[$claim] = $this->convertDate((string) $claims[$claim]);
+        }
+
+        return $claims;
+    }
+
+    /** @throws InvalidTokenStructure */
+    private function convertDate(string $value): DateTimeImmutable
+    {
+        if (strpos($value, '.') === false) {
+            return new DateTimeImmutable('@' . $value);
+        }
+
+        $date = DateTimeImmutable::createFromFormat('U.u', $value);
+
+        if ($date === false) {
+            throw InvalidTokenStructure::dateIsNotParseable($value);
+        }
+
+        return $date;
     }
 
     /**
      * Returns the signature from given data
+     *
+     * @param mixed[] $header
      */
     private function parseSignature(array $header, string $data): Signature
     {
-        if ($data === '' || !isset($header['alg']) || $header['alg'] === 'none') {
+        if ($data === '' || ! array_key_exists('alg', $header) || $header['alg'] === 'none') {
             return Signature::fromEmptyData();
         }
 
